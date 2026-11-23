@@ -551,6 +551,7 @@ async function prepareAssetWorker() {
               if (!root) { resolve(null); return; }
               if (!slotDir) slotDir = root + "/Saves/Slot1";
               var wanted = slotDir + "/generalprogress.bepis";
+              var wantedSlot1 = root + "/Saves/Slot1/generalprogress.bepis";
               var probe = store.get(wanted);
               probe.onerror = function () { resolve({ root: root, slotDir: slotDir, installed: false }); };
               probe.onsuccess = function () {
@@ -559,6 +560,16 @@ async function prepareAssetWorker() {
                   ? base64ToBytes(data.files["generalprogress.bepis"])
                   : null;
                 var installed = !!(record && record.contents && bundled && sameBytes(new Uint8Array(record.contents), bundled));
+                if (!installed && wantedSlot1 !== wanted) {
+                  var probe1 = store.get(wantedSlot1);
+                  probe1.onsuccess = function () {
+                    var r1 = probe1.result;
+                    var ok1 = !!(r1 && r1.contents && bundled && sameBytes(new Uint8Array(r1.contents), bundled));
+                    resolve({ root: root, slotDir: slotDir, installed: ok1 });
+                  };
+                  probe1.onerror = function () { resolve({ root: root, slotDir: slotDir, installed: false }); };
+                  return;
+                }
                 resolve({ root: root, slotDir: slotDir, installed: installed });
               };
             };
@@ -574,9 +585,18 @@ async function prepareAssetWorker() {
             var store = transaction.objectStore("FILE_DATA");
             try {
               store.put({ timestamp: new Date(), mode: 16877, contents: null }, root + "/Saves");
-              store.put({ timestamp: new Date(), mode: 16877, contents: null }, slotDir);
-              Object.keys(data.files).forEach(function (name) {
-                store.put({ timestamp: new Date(), mode: 33206, contents: base64ToBytes(data.files[name]) }, slotDir + "/" + name);
+              // The game picks a slot from its own prefs, which do not exist on a
+              // fresh origin, so the starter save goes into every slot folder.
+              var dirs = [slotDir];
+              for (var n = 1; n <= 5; n++) {
+                var dir = root + "/Saves/Slot" + n;
+                if (dirs.indexOf(dir) === -1) dirs.push(dir);
+              }
+              dirs.forEach(function (dir) {
+                store.put({ timestamp: new Date(), mode: 16877, contents: null }, dir);
+                Object.keys(data.files).forEach(function (name) {
+                  store.put({ timestamp: new Date(), mode: 33206, contents: base64ToBytes(data.files[name]) }, dir + "/" + name);
+                });
               });
             } catch (err) { resolve(false); return; }
             transaction.oncomplete = function () { resolve(true); };
