@@ -1,4 +1,8 @@
-const RAW_ROOT = "https://raw.githubusercontent.com/foldingchair67/ultraport/asset-host/";
+const HOST = self.location.hostname;
+const SEGMENTS = self.location.pathname.split("/").filter(Boolean);
+const ACCOUNT = HOST.endsWith(".github.io") ? HOST.slice(0, -".github.io".length) : HOST;
+const REPO = SEGMENTS.length > 1 ? SEGMENTS[0] : "";
+const RAW_ROOT = "https://raw.githubusercontent.com/" + ACCOUNT + "/" + REPO + "/asset-host/";
 const PROXY_PATH = new URL(self.registration.scope).pathname + "asset-proxy/";
 
 self.addEventListener("install", event => event.waitUntil(self.skipWaiting()));

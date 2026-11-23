@@ -110,6 +110,7 @@ jobs:
           repo_full = os.environ.get("GITHUB_REPOSITORY", "everyonesim/ultraport")
           owner, repo_name = repo_full.split("/", 1)
           base = f"https://{owner}.github.io/{repo_name}/asset-proxy/"
+          base_rel = "asset-proxy/"
           changed = set()
           for i, value in enumerate(ids):
               if not isinstance(value, str):
@@ -128,9 +129,9 @@ jobs:
           index_path = Path("index.html")
           html = index_path.read_text()
           runtime_urls = {
-              "dataUrl": base + "WebGL.data.unityweb?v=3",
-              "frameworkUrl": base + "WebGL.framework.js.unityweb",
-              "codeUrl": base + "WebGL.wasm.unityweb",
+              "dataUrl": base_rel + "WebGL.data.unityweb?v=3",
+              "frameworkUrl": base_rel + "WebGL.framework.js.unityweb",
+              "codeUrl": base_rel + "WebGL.wasm.unityweb",
           }
           for key, value in runtime_urls.items():
               html, hits = re.subn(key + r':\s*"[^"]*"', key + ': "' + value + '"', html, count=1)
@@ -140,7 +141,7 @@ jobs:
           # Always normalize the loader URL, whether this is the first run or a rerun.
           html, loader_count = re.subn(
               r'var loaderUrl\s*=\s*[^;]+;',
-              'var loaderUrl = "' + base + 'WebGL.loader.js";',
+              'var loaderUrl = "' + base_rel + 'WebGL.loader.js";',
               html,
               count=1
           )
@@ -199,7 +200,11 @@ jobs:
           PY
 
           cat > service-worker.js <<'SW'
-          const RAW_ROOT = "https://raw.githubusercontent.com/__OWNER__/__REPO__/asset-host/";
+          const HOST = self.location.hostname;
+          const SEGMENTS = self.location.pathname.split("/").filter(Boolean);
+          const ACCOUNT = HOST.endsWith(".github.io") ? HOST.slice(0, -".github.io".length) : HOST;
+          const REPO = SEGMENTS.length > 1 ? SEGMENTS[0] : "";
+          const RAW_ROOT = "https://raw.githubusercontent.com/" + ACCOUNT + "/" + REPO + "/asset-host/";
           const PROXY_PATH = new URL(self.registration.scope).pathname + "asset-proxy/";
 
           self.addEventListener("install", event => event.waitUntil(self.skipWaiting()));
